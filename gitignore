@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Playwright: hasil & riwayat eksekusi test
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/
+
+# Riwayat editor (VS Code Local History, JetBrains, dll.)
+.history/
+.vscode/
+.idea/
+*.code-workspace
+
+# Riwayat shell / REPL (jaga-jaga bila tersimpan di folder proyek)
+.bash_history
+.zsh_history
+.node_repl_history
+.python_history
+
+# Log & cache
+logs/
+*.log
+npm-debug.log*
+.npm/
+.eslintcache
+*.tsbuildinfo
+
+# Environment & rahasia
+.env
+.env.*
+!.env.example
+
+# File sistem operasi
+.DS_Store
+Thumbs.db
