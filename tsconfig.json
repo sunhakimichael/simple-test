@@ -10,5 +10,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["pages", "fixtures", "test-data", "tests", "playwright.config.ts"]
+  "include": ["pages", "api", "config", "fixtures", "test-data", "tests", "playwright.config.ts"]
 }

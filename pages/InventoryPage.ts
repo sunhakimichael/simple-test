@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './BasePage';
-import type { Product } from '../test-data/products';
+import type { Product, SortOption } from '../test-data/products';
 
 export class InventoryPage extends BasePage {
   protected readonly urlPattern = /\/inventory\.html$/;
@@ -11,6 +11,9 @@ export class InventoryPage extends BasePage {
   readonly cartBadge: Locator;
   readonly menuButton: Locator;
   readonly logoutLink: Locator;
+  readonly sortSelect: Locator;
+  readonly activeSortOption: Locator;
+  readonly itemPrices: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -20,6 +23,20 @@ export class InventoryPage extends BasePage {
     this.cartBadge = page.getByTestId('shopping-cart-badge');
     this.menuButton = page.getByRole('button', { name: 'Open Menu' });
     this.logoutLink = page.getByTestId('logout-sidebar-link');
+    this.sortSelect = page.getByTestId('product-sort-container');
+    this.activeSortOption = page.getByTestId('active-option');
+    this.itemPrices = this.items.getByTestId('inventory-item-price');
+  }
+
+  async sortBy(option: SortOption): Promise<void> {
+    await this.sortSelect.selectOption(option.value);
+    await expect(this.activeSortOption).toHaveText(option.label);
+  }
+
+  /** Harga semua produk sesuai urutan tampil di halaman, mis. "$7.99" -> 7.99. */
+  async getDisplayedPrices(): Promise<number[]> {
+    const texts = await this.itemPrices.allTextContents();
+    return texts.map((text) => Number(text.replace('$', '')));
   }
 
   private itemByName(name: string): Locator {

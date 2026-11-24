@@ -31,4 +31,5 @@ export const LOGIN_ERRORS = {
   lockedOut: 'Epic sadface: Sorry, this user has been locked out.',
   usernameRequired: 'Epic sadface: Username is required',
   passwordRequired: 'Epic sadface: Password is required',
+  inventoryRequiresLogin: "You can only access '/inventory.html' when you are logged in.",
 } as const;
