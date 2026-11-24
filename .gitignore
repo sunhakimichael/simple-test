@@ -36,3 +36,7 @@ npm-debug.log*
 # File sistem operasi
 .DS_Store
 Thumbs.db
+
+# State lokal oh-my-claudecode (kecuali skill proyek)
+.omc/*
+!.omc/skills/
