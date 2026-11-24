@@ -1,8 +1,8 @@
-import { test } from '../../fixtures/pages.fixture';
-import { USERS } from '../../test-data/users';
-import { PRODUCTS, INVENTORY_SIZE } from '../../test-data/products';
-import { CUSTOMER, EXPECTED_TEXT } from '../../test-data/checkout';
-import { calculateOrderTotals } from '../../test-data/order-calculator';
+import { test } from '../../../fixtures/pages.fixture';
+import { USERS } from '../../../test-data/users';
+import { PRODUCTS, INVENTORY_SIZE } from '../../../test-data/products';
+import { CUSTOMER, EXPECTED_TEXT } from '../../../test-data/checkout';
+import { calculateOrderTotals } from '../../../test-data/order-calculator';
 
 /**
  * E2E user journey utama:

@@ -1,135 +1,129 @@
 # simple-test
 
-Pengujian automation QA sederhana dengan **Playwright + TypeScript** menggunakan desain **Page Object Model (POM)**.
+Pengujian automation QA dengan **Playwright Test + TypeScript**, berisi dua bagian dalam satu repo:
 
-Aplikasi yang diuji: [Sauce Demo](https://www.saucedemo.com/), situs e-commerce demo yang disediakan Sauce Labs untuk latihan automation.
+| Bagian | Target | Project Playwright | Folder test |
+|--------|--------|--------------------|-------------|
+| **A. UI functional test** | [Sauce Demo](https://www.saucedemo.com/) | `chromium` | `tests/ui/` |
+| **B. API test** | [Restful-Booker](https://restful-booker.herokuapp.com/apidoc/index.html) | `api` | `tests/api/` |
 
-## Cakupan Test
+## Part A: UI test (Sauce Demo)
 
-### E2E utama: `tests/e2e/checkout-journey.spec.ts`
+Memakai **Page Object Model**: locator dan assertion halaman ada di `pages/`, spec hanya berisi alur bisnis.
 
-Satu user journey lengkap, dibagi per `test.step` agar laporan mudah dibaca:
+| Skenario soal | Lokasi test |
+|---------------|-------------|
+| 1. Login valid masuk ke halaman produk | `tests/ui/login.spec.ts` › *login berhasil dengan kredensial valid lalu logout* |
+| 2. `locked_out_user` menampilkan pesan error yang benar | `tests/ui/login.spec.ts` › *login gagal untuk user yang terkunci* |
+| 3. Sort "Price (low to high)": **seluruh** daftar berurutan | `tests/ui/product-sorting.spec.ts` |
+| 4. Tambah 2 produk, cek badge & isi cart, checkout sampai konfirmasi | `tests/ui/e2e/checkout-journey.spec.ts` |
 
-| # | Tahap | Assertion utama |
-|---|-------|-----------------|
-| 1 | **User Login** | Form login tampil, redirect ke `/inventory.html`, judul "Products", 6 produk tampil, badge keranjang kosong |
-| 2 | **Product Checkout** | Nama & harga produk benar, tombol berubah menjadi "Remove", badge keranjang sesuai jumlah, isi halaman cart sama persis (nama, harga, qty) |
-| 3 | **Form Submission** (Shipping/Billing) | Form awal kosong, field terisi sesuai input, submit berpindah ke `checkout-step-two` |
-| 4 | **Payment Completion** | Item di overview sesuai, info pembayaran (`SauceCard #31337`), info pengiriman, **subtotal + pajak 8% + total** sesuai perhitungan, klik Finish |
-| 5 | **Konfirmasi akhir** | URL `/checkout-complete.html`, judul, header "Thank you for your order!", teks konfirmasi, gambar tampil, keranjang kosong setelah kembali ke produk |
+Test tambahan: kredensial salah, username/password kosong, akses `/inventory.html` tanpa login, dan validasi form checkout (`tests/ui/checkout-form-validation.spec.ts`).
 
-### Test pendukung
+**Cara memenuhi syarat teknis:**
+- **Locator user-facing:** `getByTestId` (dikonfigurasi ke atribut `data-test` milik Sauce Demo) dan `getByRole`. Tidak ada XPath atau rantai CSS.
+- **Tanpa hard-coded wait:** tidak ada `waitForTimeout`. Semua menunggu lewat auto-wait locator dan web-first assertion (`toHaveText`, `toHaveCount`, ...).
+- **Data terpisah dari body test:** user, produk, opsi sort, data customer, dan teks yang diharapkan ada di `test-data/`.
+- **Sorting dicek menyeluruh:** semua harga dibaca, lalu dibandingkan dengan salinan yang diurutkan, bukan hanya item pertama.
+- **Total checkout dihitung**, bukan ditulis manual: `calculateOrderTotals()` menghitung subtotal + pajak 8% dalam satuan sen.
 
-- `tests/login.spec.ts`: login valid + logout, kredensial salah, user terkunci, username/password kosong, akses langsung tanpa login.
-- `tests/checkout-form-validation.spec.ts`: validasi First Name / Last Name / Postal Code kosong, dan tombol Cancel.
+> Sauce Demo tidak punya form kartu kredit. "Payment" diverifikasi lewat info pembayaran statis (`SauceCard #31337`), rincian harga, lalu tombol **Finish**.
 
-> **Catatan tentang "Billing" dan "Payment":** Sauce Demo hanya memiliki satu form data diri (First Name, Last Name, Postal Code) yang berfungsi sebagai data shipping/billing. Aplikasi ini **tidak memiliki form kartu kredit**; info pembayaran berupa teks statis `SauceCard #31337` di halaman overview. Karena itu, "Payment Completion" diuji dengan memverifikasi info pembayaran tersebut, rincian harga, lalu menyelesaikan order dengan tombol **Finish**.
+## Part B: API test (Restful-Booker)
+
+Memakai fixture `request` bawaan Playwright (`APIRequestContext`) dan berjalan sebagai **project terpisah** bernama `api` (tanpa browser).
+
+| Skenario soal | Lokasi test |
+|---------------|-------------|
+| 1. `POST /auth` mengembalikan token, diambil **sekali** | Fixture `authToken` (scope `worker`) di `fixtures/api.fixture.ts`, plus test `tests/api/auth.spec.ts` |
+| 2. `POST /booking`: status, ID, dan setiap field sama dengan yang dikirim | `tests/api/booking.spec.ts` |
+| 3. `GET /booking/{id}` mengembalikan booking yang sama | `tests/api/booking.spec.ts` |
+| 4. `PUT /booking/{id}` dengan token mengubah setiap field, dicek lewat GET lanjutan | `tests/api/booking.spec.ts` |
+| 5. Test negatif | Kredensial salah, `PUT` tanpa token (403, data tidak berubah), payload tidak lengkap (500) |
+
+Ada juga test `DELETE /booking/{id}` (201, lalu `GET` berikutnya 404).
+
+**Cara memenuhi syarat teknis:**
+- **Base URL & kredensial di config/env:** `config/api.config.ts` membaca `API_BASE_URL`, `API_USERNAME`, `API_PASSWORD`. Defaultnya kredensial admin publik dari dokumentasi Restful-Booker.
+- **Assertion lengkap:** status code, body (dibandingkan utuh dengan `toEqual`), dan header `content-type`.
+- **Cleanup otomatis:** fixture `createBooking` mencatat setiap ID yang dibuat dan menghapusnya setelah test selesai, termasuk saat test gagal.
+- **Independen & paralel:** setiap test membuat booking-nya sendiri dengan nama unik dan tidak pernah memakai ID yang sudah ada. Sudah dicoba dengan `--repeat-each=3 --workers=6`.
+
+**Perilaku Restful-Booker yang perlu diketahui** (sudah dicek langsung ke API):
+- Kredensial salah dibalas **200** dengan `{"reason":"Bad credentials"}`, bukan 401.
+- Payload tidak lengkap dibalas **500**, bukan 400.
+- `DELETE` yang berhasil dibalas **201 Created**.
 
 ## Struktur Proyek
 
 ```
 simple-test/
-├── pages/                          # Page Object Model
-│   ├── BasePage.ts                 # Kelas dasar (assertion URL halaman)
-│   ├── LoginPage.ts
-│   ├── InventoryPage.ts
-│   ├── CartPage.ts
-│   ├── CheckoutInformationPage.ts  # Checkout step 1 (form data diri)
-│   ├── CheckoutOverviewPage.ts     # Checkout step 2 (review & pembayaran)
-│   ├── CheckoutCompletePage.ts     # Halaman konfirmasi
-│   └── index.ts
+├── pages/                    # Page Object Model (Part A)
+├── api/
+│   └── BookingClient.ts      # Pembungkus endpoint Restful-Booker (Part B)
+├── config/
+│   └── api.config.ts         # Base URL & kredensial API (bisa di-override env)
 ├── fixtures/
-│   └── pages.fixture.ts            # Menyuntikkan Page Object ke setiap test
+│   ├── pages.fixture.ts      # Menyuntikkan Page Object ke test UI
+│   └── api.fixture.ts        # authToken (per worker), bookingClient, createBooking + cleanup
 ├── test-data/
-│   ├── users.ts                    # Kredensial
-│   ├── products.ts                 # Nama & harga produk
-│   ├── checkout.ts                 # Data customer, teks & pesan error yang diharapkan
-│   └── order-calculator.ts         # Hitung subtotal, pajak 8%, total
+│   ├── users.ts              # Kredensial Sauce Demo
+│   ├── products.ts           # Produk, jumlah inventory, opsi sort
+│   ├── checkout.ts           # Data customer, teks & pesan error yang diharapkan
+│   ├── order-calculator.ts   # Hitung subtotal, pajak 8%, total
+│   └── booking.ts            # Pembuat data booking unik & pesan API
 ├── tests/
-│   ├── e2e/checkout-journey.spec.ts
-│   ├── login.spec.ts
-│   └── checkout-form-validation.spec.ts
-├── .github/workflows/playwright.yml  # CI GitHub Actions
+│   ├── ui/                   # Project "chromium"
+│   │   ├── e2e/checkout-journey.spec.ts
+│   │   ├── login.spec.ts
+│   │   ├── product-sorting.spec.ts
+│   │   └── checkout-form-validation.spec.ts
+│   └── api/                  # Project "api"
+│       ├── auth.spec.ts
+│       └── booking.spec.ts
 ├── playwright.config.ts
 ├── tsconfig.json
 └── package.json
 ```
 
-### Prinsip desain POM yang dipakai
+## Prasyarat & Instalasi
 
-- **Locator hanya ada di Page Object.** File spec tidak berisi selector, sehingga bila UI berubah, cukup perbaiki satu tempat.
-- **Assertion dikelompokkan sebagai method `expect...()`** di Page Object (mis. `expectTotals()`), sehingga spec tetap ringkas dan terbaca seperti alur bisnis.
-- **Data terpisah dari logic.** Kredensial, produk, dan teks harapan ada di `test-data/`.
-- **Fixture** menyediakan Page Object siap pakai di setiap test.
-- **Locator** memakai `getByTestId` (dikonfigurasi ke atribut `data-test`) dan `getByRole`, bukan CSS/XPath yang rapuh.
-- Total harga **dihitung** oleh `calculateOrderTotals()`, bukan ditulis manual, sehingga assertion tetap valid walau produk yang dipilih berubah.
-
-## Prasyarat
-
-- [Node.js](https://nodejs.org/) yang bisa berjalan di OS-mu (proyek ini tidak mewajibkan Node 18+)
-- npm
-
-### Kompatibilitas versi (macOS lama)
-
-Proyek ini sengaja di-*pin* ke **Playwright 1.28.1** dan TypeScript 5.4 agar bisa dipakai di macOS lama (mis. 10.13 High Sierra). Playwright versi terbaru secara resmi membutuhkan Node.js 18+ dan macOS yang jauh lebih baru.
-
-- `playwright.config.ts` ditulis **tanpa `defineConfig`** (baru ada sejak Playwright 1.31).
-- Secara default hanya project **Chromium** yang aktif. Firefox dan WebKit ada di config dalam bentuk komentar; aktifkan hanya bila OS dan versi Playwright-mu mendukung.
-- Bila OS-mu modern, kamu bebas upgrade: `npm install -D @playwright/test@latest`. Kode proyek tetap kompatibel.
-
-## Instalasi
+Proyek ini sengaja di-*pin* ke **Playwright 1.28.1** agar bisa jalan di macOS lama. Karena itu config ditulis tanpa `defineConfig`, dan kode tidak memakai keyword `satisfies` (belum didukung Babel bawaan 1.28).
 
 ```bash
 git clone https://github.com/sunhakimichael/simple-test.git
 cd simple-test
-npm install
-npx playwright install chromium   # unduh browser Chromium
+npm ci
+npx playwright install chromium   # hanya dibutuhkan untuk Part A
 ```
 
 ## Menjalankan Test
 
 ```bash
-npm test                  # semua test pada project yang aktif (headless)
-npm run test:chromium     # hanya Chromium
-npm run test:e2e          # hanya user journey E2E
+npm test                  # Part A + Part B
+npm run test:ui           # hanya Part A (project chromium)
+npm run test:api          # hanya Part B (project api)
+npm run test:e2e          # hanya E2E checkout
 npm run test:headed       # browser terlihat
-
 npm run test:debug        # debug step-by-step
 npm run report            # buka laporan HTML terakhir
 npm run typecheck         # cek tipe TypeScript
 ```
 
-Menjalankan satu file atau satu test:
+Override target lewat environment variable (opsional):
 
 ```bash
-npx playwright test tests/e2e/checkout-journey.spec.ts --project=chromium --headed
-npx playwright test -g "login gagal"
+BASE_URL=https://www.saucedemo.com npm run test:ui
+API_BASE_URL=https://restful-booker.herokuapp.com API_USERNAME=admin API_PASSWORD=password123 npm run test:api
 ```
 
-Mengubah URL target (opsional):
+## Laporan & Debugging
 
-```bash
-BASE_URL=https://www.saucedemo.com npm test
-```
-
-## Hasil & Debugging
-
-- Laporan HTML: `playwright-report/` (buka dengan `npm run report`)
-- Screenshot & video otomatis disimpan saat test **gagal**
-- Trace disimpan pada **retry pertama** di CI. Buka dengan `npx playwright show-trace <file>.zip`
-
-## CI
-
-Workflow GitHub Actions di `.github/workflows/playwright.yml` otomatis menjalankan typecheck dan seluruh test setiap `push` / `pull request`, lalu mengunggah laporan HTML sebagai artifact.
-
-## Menambah Test Baru
-
-1. Tambahkan locator/method baru di Page Object yang relevan (atau buat kelas baru turunan `BasePage`).
-2. Daftarkan di `pages/index.ts` dan `fixtures/pages.fixture.ts` bila halaman baru.
-3. Tulis spec di folder `tests/` dengan `import { test, expect } from '../fixtures/pages.fixture'`.
+- **Laporan HTML** dibuat otomatis di `playwright-report/` setiap kali test dijalankan. Buka dengan `npm run report`.
+- Screenshot & video disimpan saat test UI **gagal**.
+- Trace disimpan pada **retry pertama** (retry aktif di CI). Buka dengan `npx playwright show-trace <file>.zip`.
 
 ## Catatan
 
-- UI mode (`--ui`) baru tersedia di Playwright 1.32+, jadi tidak bisa dipakai pada versi 1.28.1. Gunakan `npm run test:headed` atau `npm run test:debug`.
-- Sauce Demo adalah situs demo publik, jadi perilakunya bisa berubah sewaktu-waktu. Bila ada test yang gagal setelah update dari Sauce Labs, cek locator di folder `pages/` terlebih dahulu.
-- Kredensial di `test-data/users.ts` adalah kredensial publik dari halaman login Sauce Demo, bukan rahasia.
+- Sauce Demo dan Restful-Booker adalah layanan demo publik yang dipakai banyak orang, jadi perilakunya bisa berubah atau sesekali lambat.
+- Kredensial di repo ini adalah kredensial publik dari situs masing-masing, bukan rahasia.

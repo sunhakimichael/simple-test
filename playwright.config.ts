@@ -1,5 +1,6 @@
 import { devices } from '@playwright/test';
 import type { PlaywrightTestConfig } from '@playwright/test';
+import { API_CONFIG } from './config/api.config';
 
 /**
  * Konfigurasi Playwright untuk proyek simple-test.
@@ -28,7 +29,17 @@ const config: PlaywrightTestConfig = {
   },
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Part A: UI test Sauce Demo
+    { name: 'chromium', testDir: './tests/ui', use: { ...devices['Desktop Chrome'] } },
+    // Part B: API test Restful-Booker (tanpa browser, memakai fixture `request`)
+    {
+      name: 'api',
+      testDir: './tests/api',
+      use: {
+        baseURL: API_CONFIG.baseURL,
+        extraHTTPHeaders: API_CONFIG.headers,
+      },
+    },
     // Aktifkan bila OS/versi Playwright mendukung:
     // { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     // { name: 'webkit', use: { ...devices['Desktop Safari'] } },

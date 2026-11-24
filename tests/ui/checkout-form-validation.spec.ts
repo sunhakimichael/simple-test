@@ -1,7 +1,7 @@
-import { test } from '../fixtures/pages.fixture';
-import { USERS } from '../test-data/users';
-import { PRODUCTS } from '../test-data/products';
-import { CUSTOMER, CHECKOUT_ERRORS } from '../test-data/checkout';
+import { test } from '../../fixtures/pages.fixture';
+import { USERS } from '../../test-data/users';
+import { PRODUCTS } from '../../test-data/products';
+import { CUSTOMER, CHECKOUT_ERRORS } from '../../test-data/checkout';
 
 test.describe('Validasi form checkout (Shipping/Billing Info)', () => {
   test.beforeEach(async ({ loginPage, inventoryPage, cartPage, checkoutInfoPage }) => {

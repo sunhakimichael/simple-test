@@ -12,3 +12,15 @@ export const PRODUCTS = {
 
 /** Jumlah produk yang tampil di halaman inventory. */
 export const INVENTORY_SIZE = 6;
+
+export interface SortOption {
+  /** Nilai atribut `value` pada <option> dropdown sort. */
+  value: string;
+  /** Teks yang tampil setelah opsi dipilih. */
+  label: string;
+}
+
+// Catatan: Playwright 1.28 belum mendukung keyword `satisfies`, jadi pakai anotasi tipe biasa.
+export const SORT_OPTIONS: Readonly<Record<'priceLowToHigh', SortOption>> = {
+  priceLowToHigh: { value: 'lohi', label: 'Price (low to high)' },
+};

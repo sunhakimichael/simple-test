@@ -1,7 +1,7 @@
-import { test, expect } from '../fixtures/pages.fixture';
-import { USERS } from '../test-data/users';
-import { INVENTORY_SIZE } from '../test-data/products';
-import { LOGIN_ERRORS } from '../test-data/checkout';
+import { test, expect } from '../../fixtures/pages.fixture';
+import { USERS } from '../../test-data/users';
+import { INVENTORY_SIZE } from '../../test-data/products';
+import { LOGIN_ERRORS } from '../../test-data/checkout';
 
 test.describe('Login', () => {
   test.beforeEach(async ({ loginPage }) => {
@@ -40,6 +40,6 @@ test.describe('Login', () => {
   test('akses langsung ke inventory tanpa login ditolak', async ({ page, loginPage }) => {
     await page.goto('/inventory.html');
     await loginPage.expectToBeOnPage();
-    await expect(loginPage.errorMessage).toContainText("You can only access '/inventory.html' when you are logged in.");
+    await expect(loginPage.errorMessage).toContainText(LOGIN_ERRORS.inventoryRequiresLogin);
   });
 });
