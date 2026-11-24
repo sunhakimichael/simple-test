@@ -123,6 +123,18 @@ API_BASE_URL=https://restful-booker.herokuapp.com API_USERNAME=admin API_PASSWOR
 - Screenshot & video disimpan saat test UI **gagal**.
 - Trace disimpan pada **retry pertama** (retry aktif di CI). Buka dengan `npx playwright show-trace <file>.zip`.
 
+## CI (GitHub Actions)
+
+Workflow `.github/workflows/playwright.yml` berjalan pada setiap pull request, push ke `main`, atau dijalankan manual (`workflow_dispatch`):
+
+1. **Typecheck:** `npm run typecheck`.
+2. **Test**, dua job paralel lewat matrix:
+   - `chromium` (Part A): memasang Chromium, lalu menjalankan `--project=chromium`.
+   - `api` (Part B): menjalankan `--project=api` tanpa memasang browser.
+3. **Laporan HTML** tiap project diunggah sebagai artifact `playwright-report-<project>`. Bila ada yang gagal, `test-results/` (trace, screenshot, video) juga diunggah.
+
+Runner memakai **Ubuntu 22.04** karena Playwright 1.28 belum mendukung dependensi browser di Ubuntu 24.04. Di CI, test otomatis di-retry 2x dan berjalan dengan 1 worker (lihat `playwright.config.ts`).
+
 ## Catatan
 
 - Sauce Demo dan Restful-Booker adalah layanan demo publik yang dipakai banyak orang, jadi perilakunya bisa berubah atau sesekali lambat.
