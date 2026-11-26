@@ -3,6 +3,8 @@ import { USERS } from '../../../test-data/users';
 import { PRODUCTS, INVENTORY_SIZE } from '../../../test-data/products';
 import { CUSTOMER, EXPECTED_TEXT } from '../../../test-data/checkout';
 import { calculateOrderTotals } from '../../../test-data/order-calculator';
+import { ENV } from '../../../config/env';
+import { WRITE_SKIP_REASON } from '../../../config/write-guard';
 
 /**
  * E2E user journey utama:
@@ -13,6 +15,9 @@ import { calculateOrderTotals } from '../../../test-data/order-calculator';
  *   5. Verifikasi layar konfirmasi akhir
  */
 test.describe('E2E: Login -> Checkout -> Konfirmasi Pesanan', () => {
+  // Journey ini menyelesaikan pesanan (write), jadi di-skip di env read-only (prod).
+  test.skip(!ENV.allowWrite, WRITE_SKIP_REASON);
+
   const orderedProducts = [PRODUCTS.backpack, PRODUCTS.bikeLight];
   const totals = calculateOrderTotals(orderedProducts);
 

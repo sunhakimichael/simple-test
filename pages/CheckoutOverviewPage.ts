@@ -2,6 +2,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 import type { Product } from '../test-data/products';
 import type { OrderTotals } from '../test-data/order-calculator';
+import { assertWriteAllowed } from '../config/write-guard';
 
 /** Checkout Step Two: ringkasan pesanan, info pembayaran, dan pengiriman. */
 export class CheckoutOverviewPage extends BasePage {
@@ -61,7 +62,9 @@ export class CheckoutOverviewPage extends BasePage {
     await expect(this.totalLabel).toHaveText(`Total: $${totals.total}`);
   }
 
+  /** Membuat pesanan, jadi dihitung sebagai operasi write: diblokir di env read-only (prod). */
   async finishOrder(): Promise<void> {
+    assertWriteAllowed('Checkout: Finish (membuat pesanan)');
     await expect(this.finishButton).toBeEnabled();
     await this.finishButton.click();
   }

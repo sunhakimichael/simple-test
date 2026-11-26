@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/api.fixture';
 import type { BookingClient } from '../../api/BookingClient';
-import type { BookingSearch } from '../../test-data/booking';
+import { uniqueTag, type BookingSearch } from '../../test-data/booking';
 
 /**
  * Setiap booking punya firstname unik (`QA-<tag>`), sehingga hasil filter
@@ -39,7 +39,7 @@ test.describe('API: GET /booking dengan filter', () => {
   });
 
   test('nama yang tidak ada: 200 dengan daftar kosong', async ({ bookingClient }) => {
-    expect(await searchIds(bookingClient, { firstname: `QA-tidak-ada-${Date.now()}` })).toEqual([]);
+    expect(await searchIds(bookingClient, { firstname: `QA-tidak-ada-${uniqueTag()}` })).toEqual([]);
   });
 
   test('setelah PATCH nama: ditemukan dengan nama baru, tidak dengan nama lama', async ({

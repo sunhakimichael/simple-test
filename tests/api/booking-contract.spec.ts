@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/api.fixture';
 import type { APIResponse } from '@playwright/test';
-import { API_CONFIG } from '../../config/api.config';
+import { resolveApiCredentials } from '../../config/credentials';
 import {
   AUTH_CONTRACT,
   BOOKING_CONTRACT,
@@ -18,7 +18,7 @@ async function jsonBody(response: APIResponse): Promise<unknown> {
 
 test.describe('API: contract respons', () => {
   test('POST /auth', async ({ bookingClient }) => {
-    const body = await jsonBody(await bookingClient.auth(API_CONFIG.credentials));
+    const body = await jsonBody(await bookingClient.auth(resolveApiCredentials()));
     expect(body).toEqual(AUTH_CONTRACT);
   });
 
