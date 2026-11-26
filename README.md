@@ -7,6 +7,8 @@ Pengujian automation QA dengan **Playwright Test + TypeScript**, berisi dua bagi
 | **A. UI functional test** | [Sauce Demo](https://www.saucedemo.com/) | `chromium` | `tests/ui/` |
 | **B. API test** | [Restful-Booker](https://restful-booker.herokuapp.com/apidoc/index.html) | `api` | `tests/api/` |
 
+Ingin tahu *cara kerjanya*, bukan hanya cara menjalankannya? Baca [Knowledge Base](kb/README.md).
+
 ## Cara menjalankan (panduan cepat untuk non-QA)
 
 Tidak perlu paham Playwright: cukup salin perintah di bawah ke terminal (PowerShell/CMD di Windows, Terminal di macOS/Linux). Perintahnya sama di semua OS.
@@ -90,7 +92,7 @@ Di akhir run muncul ringkasan:
 
 ## Part A: UI test (Sauce Demo)
 
-Memakai **Page Object Model**: locator dan assertion halaman ada di `pages/`, spec hanya berisi alur bisnis.
+Memakai **Page Object Model**: locator dan assertion halaman ada di `pages/`, spec hanya berisi alur bisnis. Penjelasan lengkapnya ada di [KB: Page Object Model](kb/ui/page-object-model.md).
 
 | Skenario soal | Lokasi test |
 |---------------|-------------|
@@ -302,6 +304,7 @@ simple-test/
 │       ├── booking-search.spec.ts
 │       ├── booking-contract.spec.ts
 │       └── env-guard.spec.ts       # Env, kredensial, guard write, keunikan data (tanpa jaringan)
+├── kb/                       # Knowledge base: penjelasan cara kerja (mulai dari kb/README.md)
 ├── .env.example              # Daftar env var yang dikenali
 ├── playwright.config.ts
 ├── tsconfig.json
