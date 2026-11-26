@@ -54,6 +54,18 @@ Perintah bisa digabung dengan menambahkan `--` lalu opsi tambahan. Contoh: `npm 
 
 Tidak tahu judulnya? Jalankan `npm run test:list` untuk melihat semua test beserta file dan barisnya.
 
+### Skenario presentasi (demo)
+
+Tiga perintah siap pakai untuk demo. Skenario 1 dan 2 membuka browser dan berjalan satu per satu (1 worker) supaya mudah diikuti penonton.
+
+| Perintah | Isi | Jumlah test |
+|---|---|---|
+| `npm run demo:1` | Sorotan UI: login berhasil, user terkunci, sorting *Price (low to high)*, dan E2E login sampai konfirmasi pesanan | 4 |
+| `npm run demo:2` | Seluruh test UI login, sorting produk, dan E2E checkout | 13 |
+| `npm run demo:3` | API: auth dan CRUD booking (tanpa browser) | 8 |
+
+Tips: jalankan `npm run report` setelah demo untuk menampilkan laporan HTML-nya.
+
 ### Membaca hasil
 
 Baris pertama selalu menunjukkan env yang sedang dipakai, contoh:
