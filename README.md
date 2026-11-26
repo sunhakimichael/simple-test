@@ -15,7 +15,7 @@ Memakai **Page Object Model**: locator dan assertion halaman ada di `pages/`, sp
 |---------------|-------------|
 | 1. Login valid masuk ke halaman produk | `tests/ui/login.spec.ts` › *login berhasil dengan kredensial valid lalu logout* |
 | 2. `locked_out_user` menampilkan pesan error yang benar | `tests/ui/login.spec.ts` › *login gagal untuk user yang terkunci* |
-| 3. Sort "Price (low to high)": **seluruh** daftar berurutan | `tests/ui/product-sorting.spec.ts` |
+| 3. Sort "Price (low to high)": **seluruh** daftar berurutan | `tests/ui/product-sorting.spec.ts` (diperluas ke 4 opsi sort, lihat [Multi-sorting](#multi-sorting)) |
 | 4. Tambah 2 produk, cek badge & isi cart, checkout sampai konfirmasi | `tests/ui/e2e/checkout-journey.spec.ts` |
 
 Test tambahan: kredensial salah, username/password kosong, akses `/inventory.html` tanpa login, dan validasi form checkout (`tests/ui/checkout-form-validation.spec.ts`).
@@ -24,10 +24,40 @@ Test tambahan: kredensial salah, username/password kosong, akses `/inventory.htm
 - **Locator user-facing:** `getByTestId` (dikonfigurasi ke atribut `data-test` milik Sauce Demo) dan `getByRole`. Tidak ada XPath atau rantai CSS.
 - **Tanpa hard-coded wait:** tidak ada `waitForTimeout`. Semua menunggu lewat auto-wait locator dan web-first assertion (`toHaveText`, `toHaveCount`, ...).
 - **Data terpisah dari body test:** user, produk, opsi sort, data customer, dan teks yang diharapkan ada di `test-data/`.
-- **Sorting dicek menyeluruh:** semua harga dibaca, lalu dibandingkan dengan salinan yang diurutkan, bukan hanya item pertama.
+- **Sorting dicek menyeluruh:** seluruh daftar (jumlah, nama, harga per posisi) dibandingkan dengan urutan yang dihitung dari katalog, bukan hanya item pertama.
 - **Total checkout dihitung**, bukan ditulis manual: `calculateOrderTotals()` menghitung subtotal + pajak 8% dalam satuan sen.
 
 > Sauce Demo tidak punya form kartu kredit. "Payment" diverifikasi lewat info pembayaran statis (`SauceCard #31337`), rincian harga, lalu tombol **Finish**.
+
+### Multi-sorting
+
+`tests/ui/product-sorting.spec.ts` menjalankan **satu skenario reusable** untuk setiap opsi di `SORT_OPTIONS`:
+
+| Opsi | `value` | Aturan expected |
+|------|---------|-----------------|
+| Name (A to Z) | `az` | Nama naik (`localeCompare`) |
+| Name (Z to A) | `za` | Nama turun |
+| Price (low to high) | `lohi` | Harga naik; harga sama → Name A–Z |
+| Price (high to low) | `hilo` | Harga turun; harga sama → Name A–Z |
+
+Ada juga test urutan default saat halaman dibuka (Name A–Z), dan test yang mengganti keempat sort berturut-turut di halaman yang sama. Total: 6 test.
+
+**Menambah opsi sort baru** cukup dengan satu entri di `SORT_OPTIONS` (`value`, `label`, `compare`). Test-nya terbentuk otomatis lewat loop.
+
+#### Sumber expected data
+
+Expected order **tidak pernah dibaca dari UI**. Kalau dibaca dari UI, test hanya membandingkan halaman dengan dirinya sendiri dan tidak akan menangkap produk yang hilang, ganda, atau harganya salah. Expected order disusun dari dua bagian di `test-data/products.ts`:
+
+1. **`CATALOG`: data apa (nama & harga).** Ini snapshot keenam produk yang tampil di `/inventory.html` untuk `standard_user`, dicatat dari situsnya langsung (26 Nov 2026). Sengaja ditulis tidak berurutan, supaya urutan yang diharapkan benar-benar hasil aturan sort, bukan kebetulan cocok dengan urutan penulisan.
+2. **`compare` di tiap `SORT_OPTIONS`: aturan urutannya.** Diturunkan dari label opsinya (A–Z, Z–A, low–high, high–low).
+
+`expectedOrder(option)` lalu menghasilkan `[...CATALOG].sort(option.compare)`. Hasilnya dicocokkan dengan halaman lewat `inventoryPage.expectProductsInOrder()`, yaitu `toHaveText([...])` untuk nama dan harga. Assertion ini web-first (auto-retry), jadi tidak perlu wait manual.
+
+**Aturan harga kembar.** Bolt T-Shirt dan Test.allTheThings() T-Shirt sama-sama $15.99. Label opsi sort tidak menjelaskan urutan untuk kasus ini. Dari pengamatan langsung di situs, Sauce Demo memakai sort stabil dari urutan default, sehingga produk berharga sama tetap Name A–Z di **kedua** arah harga. Aturan ini dicatat eksplisit di `byPrice()`. Kalau Sauce Labs mengubah perilakunya, test akan gagal tepat di posisi kedua T-Shirt tersebut.
+
+**Bukti test bisa gagal** (dicoba saat menulis test):
+- Saat dijalankan sebagai `problem_user` (fitur sort-nya rusak), 4 dari 6 test gagal: dropdown tetap `az`.
+- Saat aturan tie-breaker high–low sengaja dibalik, test gagal di posisi T-Shirt $15.99.
 
 ## Part B: API test (Restful-Booker)
 

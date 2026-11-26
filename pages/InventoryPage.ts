@@ -2,6 +2,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 import type { Product, SortOption } from '../test-data/products';
 
+/** 29.99 -> "$29.99", format harga yang tampil di Sauce Demo. */
+const formatPrice = (price: number): string => `$${price.toFixed(2)}`;
+
 export class InventoryPage extends BasePage {
   protected readonly urlPattern = /\/inventory\.html$/;
 
@@ -13,6 +16,7 @@ export class InventoryPage extends BasePage {
   readonly logoutLink: Locator;
   readonly sortSelect: Locator;
   readonly activeSortOption: Locator;
+  readonly itemNames: Locator;
   readonly itemPrices: Locator;
 
   constructor(page: Page) {
@@ -25,18 +29,29 @@ export class InventoryPage extends BasePage {
     this.logoutLink = page.getByTestId('logout-sidebar-link');
     this.sortSelect = page.getByTestId('product-sort-container');
     this.activeSortOption = page.getByTestId('active-option');
+    this.itemNames = this.items.getByTestId('inventory-item-name');
     this.itemPrices = this.items.getByTestId('inventory-item-price');
   }
 
   async sortBy(option: SortOption): Promise<void> {
     await this.sortSelect.selectOption(option.value);
+    await this.expectActiveSort(option);
+  }
+
+  async expectActiveSort(option: SortOption): Promise<void> {
+    await expect(this.sortSelect).toHaveValue(option.value);
     await expect(this.activeSortOption).toHaveText(option.label);
   }
 
-  /** Harga semua produk sesuai urutan tampil di halaman, mis. "$7.99" -> 7.99. */
-  async getDisplayedPrices(): Promise<number[]> {
-    const texts = await this.itemPrices.allTextContents();
-    return texts.map((text) => Number(text.replace('$', '')));
+  /**
+   * Memastikan SELURUH daftar produk tampil persis sesuai urutan `expected`:
+   * jumlah, nama, dan harga per posisi. Assertion array bersifat web-first
+   * (auto-retry), jadi tidak butuh wait manual setelah sort.
+   */
+  async expectProductsInOrder(expected: readonly Product[]): Promise<void> {
+    await expect(this.items).toHaveCount(expected.length);
+    await expect(this.itemNames).toHaveText(expected.map((p) => p.name));
+    await expect(this.itemPrices).toHaveText(expected.map((p) => formatPrice(p.price)));
   }
 
   private itemByName(name: string): Locator {
