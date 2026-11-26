@@ -1,10 +1,10 @@
 import { test, expect } from '../../fixtures/api.fixture';
-import { API_CONFIG } from '../../config/api.config';
+import { resolveApiCredentials } from '../../config/credentials';
 import { API_MESSAGES, INVALID_CREDENTIALS } from '../../test-data/booking';
 
 test.describe('API: POST /auth', () => {
   test('kredensial admin valid mengembalikan token', async ({ bookingClient }) => {
-    const response = await bookingClient.auth(API_CONFIG.credentials);
+    const response = await bookingClient.auth(resolveApiCredentials());
 
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('application/json');

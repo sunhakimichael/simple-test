@@ -1,14 +1,24 @@
 import { devices } from '@playwright/test';
 import type { PlaywrightTestConfig } from '@playwright/test';
-import { API_CONFIG } from './config/api.config';
+import { ENV } from './config/env';
 
 /**
  * Konfigurasi Playwright untuk proyek simple-test.
  * Ditulis kompatibel dengan Playwright 1.28.x (tanpa defineConfig).
  *
- * BASE_URL dapat di-override lewat environment variable, contoh:
- *   BASE_URL=https://staging.example.com npm test
+ * Env (dev/staging/prod) dipilih lewat TEST_ENV; URL per env ada di config/environments.ts.
+ * Cara termudah: `npm run test:staging` (lihat README).
  */
+
+// Tampilkan env aktif sekali di awal run (bukan di setiap worker).
+if (!process.env.TEST_WORKER_INDEX) {
+  console.log(
+    `[env] ${ENV.name} | UI: ${ENV.ui.baseURL} | API: ${ENV.api.baseURL} | write: ${
+      ENV.allowWrite ? 'diizinkan' : 'DIBLOKIR (read-only)'
+    }`,
+  );
+}
+
 const config: PlaywrightTestConfig = {
   testDir: './tests',
   fullyParallel: true,
@@ -18,9 +28,16 @@ const config: PlaywrightTestConfig = {
   timeout: 30_000,
   expect: { timeout: 7_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
+  // Tampil di laporan HTML agar jelas test dijalankan di env mana.
+  metadata: {
+    environment: ENV.name,
+    uiBaseURL: ENV.ui.baseURL,
+    apiBaseURL: ENV.api.baseURL,
+    allowWrite: ENV.allowWrite,
+  },
 
   use: {
-    baseURL: process.env.BASE_URL ?? 'https://www.saucedemo.com',
+    baseURL: ENV.ui.baseURL,
     // Sauce Demo memakai atribut data-test (bukan data-testid bawaan Playwright)
     testIdAttribute: 'data-test',
     trace: 'on-first-retry',
@@ -36,8 +53,8 @@ const config: PlaywrightTestConfig = {
       name: 'api',
       testDir: './tests/api',
       use: {
-        baseURL: API_CONFIG.baseURL,
-        extraHTTPHeaders: API_CONFIG.headers,
+        baseURL: ENV.api.baseURL,
+        extraHTTPHeaders: ENV.api.headers,
       },
     },
     // Aktifkan bila OS/versi Playwright mendukung:

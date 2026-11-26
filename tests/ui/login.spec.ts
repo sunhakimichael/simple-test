@@ -23,7 +23,9 @@ test.describe('Login', () => {
   });
 
   test('login gagal untuk user yang terkunci', async ({ loginPage }) => {
-    await loginPage.login(USERS.lockedOut);
+    const lockedOut = USERS.lockedOut;
+    test.skip(!lockedOut, 'Akun terkunci tidak tersedia di env ini (set UI_LOCKED_USERNAME).');
+    await loginPage.login(lockedOut!);
     await loginPage.expectError(LOGIN_ERRORS.lockedOut);
   });
 

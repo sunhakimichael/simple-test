@@ -4,7 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Jalankan manual dari tab Actions dan pilih env-nya.
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Env target (prod = read-only, test write di-skip)'
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
 
 # Batalkan run lama untuk branch/PR yang sama bila ada push baru.
 concurrency:
@@ -35,7 +42,22 @@ jobs:
       fail-fast: false
       matrix:
         # chromium = Part A (UI Sauce Demo), api = Part B (Restful-Booker)
-        project: [chromium, api]
+        include:
+          - project: chromium
+            args: ''
+          # API dijalankan paralel (4 worker) dan diulang 2x di setiap PR
+          # untuk membuktikan test tidak saling bergantung / berbagi data.
+          - project: api
+            args: --workers=4 --repeat-each=2
+    env:
+      # Push & PR selalu dev; run manual memakai env yang dipilih.
+      TEST_ENV: ${{ inputs.environment || 'dev' }}
+      # Kosong bila secret tidak ada; di dev dipakai kredensial demo.
+      API_USERNAME: ${{ secrets.API_USERNAME }}
+      API_PASSWORD: ${{ secrets.API_PASSWORD }}
+      UI_USERNAME: ${{ secrets.UI_USERNAME }}
+      UI_PASSWORD: ${{ secrets.UI_PASSWORD }}
+      UI_LOCKED_USERNAME: ${{ secrets.UI_LOCKED_USERNAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,7 +71,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
-        run: npx playwright test --project=${{ matrix.project }}
+        run: npx playwright test --project=${{ matrix.project }} ${{ matrix.args }}
 
       - name: Upload HTML report
         if: ${{ !cancelled() }}

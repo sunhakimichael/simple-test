@@ -7,6 +7,75 @@ Pengujian automation QA dengan **Playwright Test + TypeScript**, berisi dua bagi
 | **A. UI functional test** | [Sauce Demo](https://www.saucedemo.com/) | `chromium` | `tests/ui/` |
 | **B. API test** | [Restful-Booker](https://restful-booker.herokuapp.com/apidoc/index.html) | `api` | `tests/api/` |
 
+## Cara menjalankan (panduan cepat untuk non-QA)
+
+Tidak perlu paham Playwright: cukup salin perintah di bawah ke terminal (PowerShell/CMD di Windows, Terminal di macOS/Linux). Perintahnya sama di semua OS.
+
+### Langkah 1 kali saja
+
+1. Install **Node.js 18 atau lebih baru** dari <https://nodejs.org> (pilih versi LTS). Cek dengan `node -v`.
+2. Buka terminal di folder proyek ini, lalu jalankan:
+
+   ```bash
+   npm ci
+   ```
+   Memasang semua yang dibutuhkan test (dari `package-lock.json`).
+
+   ```bash
+   npx playwright install chromium
+   ```
+   Mengunduh browser Chromium yang dipakai test UI.
+
+### Saya ingin…
+
+| Saya ingin… | Ketik perintah ini |
+|---|---|
+| Menjalankan **semua** test | `npm test` |
+| Hanya test **tampilan web** (Sauce Demo) | `npm run test:ui` |
+| Hanya test **API** (Restful-Booker) | `npm run test:api` |
+| Hanya test **login** | `npm run test:login` |
+| Hanya test **sorting produk** | `npm run test:sorting` |
+| Hanya test **checkout** (validasi form + alur beli) | `npm run test:checkout` |
+| Hanya test API tertentu | `npm run test:api:booking` · `test:api:patch` · `test:api:search` · `test:api:contract` · `test:api:guard` |
+| **Melihat browser** saat test berjalan | `npm run test:headed` |
+| Menjalankan di **staging** / **prod** | `npm run test:staging` · `npm run test:prod` (butuh kredensial, lihat [Env](#env-devstagingprod--guard-write)) |
+| Melihat daftar semua judul test | `npm run test:list` |
+| Membuka **laporan hasil** terakhir | `npm run report` |
+
+Perintah bisa digabung dengan menambahkan `--` lalu opsi tambahan. Contoh: `npm run test:login -- --headed` atau `npm run test:staging -- --project=api`.
+
+### Menjalankan satu test spesifik
+
+| Cara | Contoh | Hasil |
+|---|---|---|
+| Per **fitur/file** (cukup sebagian nama file) | `npm test -- login` | semua test di `login.spec.ts` |
+| Per **judul test** (cukup sebagian kata) | `npm test -- -g "password kosong"` | tepat 1 test: *login gagal bila password kosong* |
+| Per **baris** (salin dari laporan/daftar test) | `npm test -- tests/ui/login.spec.ts:37` | test yang dimulai di baris 37 |
+
+Tidak tahu judulnya? Jalankan `npm run test:list` untuk melihat semua test beserta file dan barisnya.
+
+### Membaca hasil
+
+Baris pertama selalu menunjukkan env yang sedang dipakai, contoh:
+
+```
+[env] dev | UI: https://www.saucedemo.com | API: https://restful-booker.herokuapp.com | write: diizinkan
+```
+
+Di akhir run muncul ringkasan:
+- **passed**: test lulus.
+- **failed**: ada yang tidak sesuai harapan. Detail, screenshot, dan video tersedia di laporan (`npm run report`).
+- **skipped**: sengaja tidak dijalankan, beserta alasannya. Contoh: di prod, test yang mengubah data di-skip oleh guard write. Ini memang yang diharapkan, bukan error.
+
+### Masalah umum
+
+| Pesan | Solusi |
+|---|---|
+| `'playwright' is not recognized` / `command not found` | Jalankan `npm ci` dulu. |
+| `Executable doesn't exist ... chromium` | Jalankan `npx playwright install chromium`. |
+| `Env var API_USERNAME wajib diisi untuk env "staging"` | Staging/prod butuh kredensial. Lihat [Env](#env-devstagingprod--guard-write). |
+| `Env "produksi" tidak dikenal` | Pilihan env yang valid: `dev`, `staging`, `prod`. |
+
 ## Part A: UI test (Sauce Demo)
 
 Memakai **Page Object Model**: locator dan assertion halaman ada di `pages/`, spec hanya berisi alur bisnis.
@@ -97,10 +166,10 @@ Memakai fixture `request` bawaan Playwright (`APIRequestContext`) dan berjalan s
 Ada juga test `DELETE /booking/{id}` (201, lalu `GET` berikutnya 404).
 
 **Cara memenuhi syarat teknis:**
-- **Base URL & kredensial di config/env:** `config/api.config.ts` membaca `API_BASE_URL`, `API_USERNAME`, `API_PASSWORD`. Defaultnya kredensial admin publik dari dokumentasi Restful-Booker.
+- **Base URL & kredensial di config/env:** URL per env ada di `config/environments.ts`, dan kredensial dibaca dari env var lewat `config/credentials.ts`. Lihat [Env Dev/Staging/Prod & guard write](#env-devstagingprod--guard-write).
 - **Assertion lengkap:** status code, body (dibandingkan utuh dengan `toEqual`), dan header `content-type`.
 - **Cleanup otomatis:** fixture `createBooking` mencatat setiap ID yang dibuat dan menghapusnya setelah test selesai, termasuk saat test gagal.
-- **Independen & paralel:** setiap test membuat booking-nya sendiri dengan nama unik dan tidak pernah memakai ID yang sudah ada. Sudah dicoba dengan `--repeat-each=3 --workers=6`.
+- **Independen & paralel:** lihat [Eksekusi paralel & isolasi](#eksekusi-paralel--isolasi).
 
 **Perilaku Restful-Booker yang perlu diketahui** (sudah dicek langsung ke API):
 - Kredensial salah dibalas **200** dengan `{"reason":"Bad credentials"}`, bukan 401.
@@ -132,6 +201,58 @@ Ada juga test `DELETE /booking/{id}` (201, lalu `GET` berikutnya 404).
 - contract diberi tipe yang salah
 - nama lama dianggap masih ditemukan setelah PATCH
 
+## Eksekusi paralel & isolasi
+
+`fullyParallel: true` aktif. Setiap worker Playwright adalah **proses terpisah**, jadi variabel di memori tidak pernah dibagi antar worker. Hasil audit:
+
+| Aspek | Penerapan | Kenapa aman |
+|---|---|---|
+| **Fixture scope** | `authToken` scope **worker** (login sekali per worker). `bookingClient` & `createBooking` scope **test** | Token hanya string yang dibaca dan tidak pernah diubah. Semua yang punya state (daftar ID yang dibuat) dibuat baru di setiap test |
+| **Shared state** | Tidak ada variabel global yang diubah antar test. Satu-satunya state modul adalah counter `uniqueTag`, yang hanya bertambah | Tidak ada test yang bergantung pada urutan atau hasil test lain |
+| **Booking ID unik** | ID dibuat oleh server. Nama `QA-<waktu>-<pid>-<counter>-<acak>` dari `uniqueTag()` | pid + counter **menjamin** unik di satu mesin, dan waktu + acak memisahkan run dari mesin lain. Dibuktikan di `env-guard.spec.ts` (10.000 tag tanpa duplikat) |
+| **Data orang lain** | Test hanya meng-assert ID miliknya sendiri. Hasil filter dicek persis karena namanya unik | API publik dipakai banyak orang, dan data mereka tidak memengaruhi hasil |
+| **Cleanup independen** | `createBooking` hanya menghapus ID yang dibuat test itu sendiri, tetap jalan walau test gagal. Statusnya dicek (`expect.soft`, harus 201 atau 405) | Booking yang gagal dihapus akan **terlihat** di laporan beserta ID-nya, tidak bocor diam-diam |
+
+**Dibuktikan di CI:** job `api` selalu jalan dengan `--workers=4 --repeat-each=2`, sehingga setiap test dijalankan dua kali secara paralel di setiap PR. Secara lokal juga sudah dicoba dengan `--workers=4 --repeat-each=3`.
+
+## Env Dev/Staging/Prod & guard write
+
+URL (tidak rahasia) dan kredensial (rahasia) **dipisah**:
+
+| | Disimpan di | Keterangan |
+|---|---|---|
+| URL & aturan per env | `config/environments.ts` (di-commit) | URL staging/prod masih **placeholder**: ganti di file ini, atau override dengan `BASE_URL` / `API_BASE_URL` |
+| Kredensial | env var / GitHub Secrets (**tidak** di-commit) | Daftarnya di `.env.example` |
+
+| Env | URL default | Kredensial | Write (buat/ubah/hapus data) |
+|---|---|---|---|
+| `dev` (default) | saucedemo.com & restful-booker.herokuapp.com | Demo publik, otomatis | Diizinkan |
+| `staging` | placeholder `*.example` | **Wajib** dari env var | Diizinkan |
+| `prod` | placeholder `*.example` | **Wajib** dari env var | **Diblokir**, tidak bisa di-override |
+
+**Menjalankan di staging/prod:** isi kredensial dulu, lalu pakai script env.
+
+```powershell
+# PowerShell (Windows)
+$env:API_USERNAME="..."; $env:API_PASSWORD="..."; $env:UI_USERNAME="..."; $env:UI_PASSWORD="..."
+npm run test:staging
+```
+
+```bash
+# macOS / Linux
+API_USERNAME=... API_PASSWORD=... UI_USERNAME=... UI_PASSWORD=... npm run test:staging
+```
+
+Kredensial dibaca saat dibutuhkan saja. Contohnya, `npm run test:staging -- --project=api` hanya meminta `API_USERNAME`/`API_PASSWORD`. Bila ada yang kurang, test gagal cepat dengan pesan yang menyebut nama variabelnya.
+
+**Guard write dua lapis** (`config/write-guard.ts`):
+1. **Lapis keras.** `BookingClient.create/update/partialUpdate/delete` dan `CheckoutOverviewPage.finishOrder()` memanggil `assertWriteAllowed()` **sebelum** request dikirim. Di prod, operasi itu langsung gagal dengan `WriteBlockedError`, jadi test yang lupa di-skip pun tetap tidak bisa mengubah data.
+2. **Lapis lunak.** Test yang membuat data (lewat fixture `createBooking`) dan E2E checkout otomatis **di-skip** di prod, dengan alasan yang tampil di laporan. Yang tetap jalan di prod hanya test read-only: login, sorting, validasi form, auth, search, dan test guard.
+
+Guard ini juga diuji tanpa jaringan di `tests/api/env-guard.spec.ts`. Di sana sebuah `APIRequestContext` palsu membuktikan bahwa di prod keempat operasi write ditolak dan **tidak ada request yang terkirim**, sementara operasi baca tetap diteruskan. Mutation check (guard dihapus dari `create`, counter `uniqueTag` tidak bertambah) membuat test ini gagal seperti seharusnya.
+
+> Simulasi prod terhadap server publik: `TEST_ENV=prod` + `BASE_URL`/`API_BASE_URL` diarahkan ke server demo + kredensial demo lewat env var menghasilkan 34 passed dan 23 skipped: 21 test API yang membuat data, E2E checkout, dan test akun terkunci (karena `UI_LOCKED_USERNAME` tidak diset). Tidak ada data yang dibuat.
+
 ## Struktur Proyek
 
 ```
@@ -141,7 +262,12 @@ simple-test/
 │   ├── BookingClient.ts      # Pembungkus endpoint Restful-Booker (Part B)
 │   └── contracts.ts          # Contract respons (key + tipe + format)
 ├── config/
-│   └── api.config.ts         # Base URL & kredensial API (bisa di-override env)
+│   ├── environments.ts       # URL & aturan write per env (dev/staging/prod)
+│   ├── env.ts                # Memilih env aktif dari TEST_ENV (+ override URL)
+│   ├── credentials.ts        # Kredensial dari env var (demo hanya di dev)
+│   └── write-guard.ts        # Guard: blokir operasi write di prod
+├── scripts/
+│   └── run-tests.js          # npm run test:dev|staging|prod (lintas OS)
 ├── fixtures/
 │   ├── pages.fixture.ts      # Menyuntikkan Page Object ke test UI
 │   └── api.fixture.ts        # authToken (per worker), bookingClient, createBooking + cleanup
@@ -162,42 +288,18 @@ simple-test/
 │       ├── booking.spec.ts
 │       ├── booking-patch.spec.ts
 │       ├── booking-search.spec.ts
-│       └── booking-contract.spec.ts
+│       ├── booking-contract.spec.ts
+│       └── env-guard.spec.ts       # Env, kredensial, guard write, keunikan data (tanpa jaringan)
+├── .env.example              # Daftar env var yang dikenali
 ├── playwright.config.ts
 ├── tsconfig.json
 └── package.json
 ```
 
-## Prasyarat & Instalasi
+## Catatan teknis
 
-Proyek ini sengaja di-*pin* ke **Playwright 1.28.1** agar bisa jalan di macOS lama. Karena itu config ditulis tanpa `defineConfig`, dan kode tidak memakai keyword `satisfies` (belum didukung Babel bawaan 1.28).
-
-```bash
-git clone https://github.com/sunhakimichael/simple-test.git
-cd simple-test
-npm ci
-npx playwright install chromium   # hanya dibutuhkan untuk Part A
-```
-
-## Menjalankan Test
-
-```bash
-npm test                  # Part A + Part B
-npm run test:ui           # hanya Part A (project chromium)
-npm run test:api          # hanya Part B (project api)
-npm run test:e2e          # hanya E2E checkout
-npm run test:headed       # browser terlihat
-npm run test:debug        # debug step-by-step
-npm run report            # buka laporan HTML terakhir
-npm run typecheck         # cek tipe TypeScript
-```
-
-Override target lewat environment variable (opsional):
-
-```bash
-BASE_URL=https://www.saucedemo.com npm run test:ui
-API_BASE_URL=https://restful-booker.herokuapp.com API_USERNAME=admin API_PASSWORD=password123 npm run test:api
-```
+- Proyek ini sengaja di-*pin* ke **Playwright 1.28.1** agar bisa jalan di macOS lama. Karena itu config ditulis tanpa `defineConfig`, dan kode tidak memakai keyword `satisfies` (belum didukung Babel bawaan 1.28).
+- Perintah tambahan untuk developer: `npm run test:debug` (debug langkah demi langkah) dan `npm run typecheck` (cek tipe TypeScript).
 
 ## Laporan & Debugging
 
@@ -211,13 +313,15 @@ Workflow `.github/workflows/playwright.yml` berjalan pada setiap pull request, p
 
 1. **Typecheck:** `npm run typecheck`.
 2. **Test**, dua job paralel lewat matrix:
-   - `chromium` (Part A): memasang Chromium, lalu menjalankan `--project=chromium`.
-   - `api` (Part B): menjalankan `--project=api` tanpa memasang browser.
+   - `chromium` (Part A): memasang Chromium, lalu menjalankan `--project=chromium` dengan 1 worker.
+   - `api` (Part B): menjalankan `--project=api --workers=4 --repeat-each=2` tanpa memasang browser, untuk membuktikan isolasi paralel.
 3. **Laporan HTML** tiap project diunggah sebagai artifact `playwright-report-<project>`. Bila ada yang gagal, `test-results/` (trace, screenshot, video) juga diunggah.
 
-Runner memakai **Ubuntu 22.04** karena Playwright 1.28 belum mendukung dependensi browser di Ubuntu 24.04. Di CI, test otomatis di-retry 2x dan berjalan dengan 1 worker (lihat `playwright.config.ts`).
+**Memilih env di CI:** push dan PR selalu memakai `dev`. Untuk staging/prod, buka tab **Actions → Playwright Tests → Run workflow**, lalu pilih `environment`. Kredensial diambil dari **GitHub Secrets** (`API_USERNAME`, `API_PASSWORD`, `UI_USERNAME`, `UI_PASSWORD`, `UI_LOCKED_USERNAME`).
+
+Runner memakai **Ubuntu 22.04** karena Playwright 1.28 belum mendukung dependensi browser di Ubuntu 24.04. Di CI, test otomatis di-retry 2x.
 
 ## Catatan
 
 - Sauce Demo dan Restful-Booker adalah layanan demo publik yang dipakai banyak orang, jadi perilakunya bisa berubah atau sesekali lambat.
-- Kredensial di repo ini adalah kredensial publik dari situs masing-masing, bukan rahasia.
+- Kredensial demo di `config/credentials.ts` adalah kredensial publik dari situs masing-masing, bukan rahasia, dan hanya dipakai di env `dev`.

@@ -12,8 +12,22 @@ export interface Booking {
   additionalneeds: string;
 }
 
-/** Penanda unik agar data milik test ini mudah dikenali di API publik yang dipakai banyak orang. */
-const uniqueTag = (): string => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+let tagCounter = 0;
+
+/**
+ * Penanda unik agar data milik test ini mudah dikenali di API publik yang dipakai banyak orang.
+ * Format `<waktu>-<pid>-<counter>-<acak>`:
+ * - pid + counter menjamin unik di satu mesin (setiap worker Playwright adalah proses sendiri,
+ *   dan counter selalu naik di dalam proses itu),
+ * - waktu + acak memisahkan run dari mesin lain (mis. CI dan laptop berjalan bersamaan).
+ */
+export const uniqueTag = (): string =>
+  [
+    Date.now().toString(36),
+    process.pid.toString(36),
+    (tagCounter++).toString(36),
+    Math.random().toString(36).slice(2, 6),
+  ].join('-');
 
 /** Booking baru dengan nama unik. Setiap test membuat datanya sendiri. */
 export function buildBooking(overrides: Partial<Booking> = {}): Booking {
