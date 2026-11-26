@@ -25,6 +25,30 @@ export const CHECKOUT_ERRORS = {
   postalCodeRequired: 'Error: Postal Code is required',
 } as const;
 
+export type CustomerField = keyof CustomerInfo;
+
+/** Satu kasus negatif: field wajib yang dikosongkan beserta error yang diharapkan. */
+export interface RequiredFieldCase {
+  field: CustomerField;
+  /** Nama field seperti tampil di placeholder form. */
+  label: string;
+  expectedError: string;
+}
+
+/** Field wajib di form checkout. Satu test negatif dibuat untuk setiap entri. */
+export const REQUIRED_FIELD_CASES: readonly RequiredFieldCase[] = [
+  { field: 'firstName', label: 'First Name', expectedError: CHECKOUT_ERRORS.firstNameRequired },
+  { field: 'lastName', label: 'Last Name', expectedError: CHECKOUT_ERRORS.lastNameRequired },
+  { field: 'postalCode', label: 'Postal Code', expectedError: CHECKOUT_ERRORS.postalCodeRequired },
+];
+
+/** Data customer lengkap KECUALI satu field (field itu tidak diisi sama sekali). */
+export function customerWithout(field: CustomerField, customer: CustomerInfo = CUSTOMER): Partial<CustomerInfo> {
+  const partial: Partial<CustomerInfo> = { ...customer };
+  delete partial[field];
+  return partial;
+}
+
 export const LOGIN_ERRORS = {
   invalidCredentials:
     'Epic sadface: Username and password do not match any user in this service',

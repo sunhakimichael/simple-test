@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './BasePage';
-import type { CustomerInfo } from '../test-data/checkout';
+import type { CustomerField, CustomerInfo } from '../test-data/checkout';
 
 /** Checkout Step One: form data pengiriman / penagihan. */
 export class CheckoutInformationPage extends BasePage {
@@ -13,6 +13,7 @@ export class CheckoutInformationPage extends BasePage {
   readonly continueButton: Locator;
   readonly cancelButton: Locator;
   readonly errorMessage: Locator;
+  readonly cartBadge: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -23,6 +24,7 @@ export class CheckoutInformationPage extends BasePage {
     this.continueButton = page.getByTestId('continue');
     this.cancelButton = page.getByTestId('cancel');
     this.errorMessage = page.getByTestId('error');
+    this.cartBadge = page.getByTestId('shopping-cart-badge');
   }
 
   async expectLoaded(): Promise<void> {
@@ -53,5 +55,43 @@ export class CheckoutInformationPage extends BasePage {
   async expectError(message: string): Promise<void> {
     await expect(this.errorMessage).toHaveText(message);
     await this.expectToBeOnPage();
+  }
+
+  /**
+   * Memastikan validasi menolak submit dan checkout TIDAK berlanjut:
+   * - pesan error yang tepat tampil,
+   * - user tetap di Checkout Step One (URL, judul, tombol Continue masih ada),
+   * - field yang kosong tetap kosong, dan isian lain tidak hilang,
+   * - isi keranjang tidak berubah (pesanan belum dibuat).
+   */
+  async expectCheckoutBlocked(params: {
+    error: string;
+    /** Field yang diisi; field lain harus tetap kosong. */
+    filled: Partial<CustomerInfo>;
+    cartCount: number;
+  }): Promise<void> {
+    await expect(this.errorMessage).toHaveText(params.error);
+
+    await this.expectToBeOnPage();
+    await expect(this.title).toHaveText('Checkout: Your Information');
+    await expect(this.continueButton).toBeVisible();
+
+    for (const [field, input] of this.inputs()) {
+      await expect(input).toHaveValue(params.filled[field] ?? '');
+    }
+
+    await expect(this.cartBadge).toHaveText(String(params.cartCount));
+  }
+
+  input(field: CustomerField): Locator {
+    return new Map(this.inputs()).get(field) as Locator;
+  }
+
+  private inputs(): [CustomerField, Locator][] {
+    return [
+      ['firstName', this.firstNameInput],
+      ['lastName', this.lastNameInput],
+      ['postalCode', this.postalCodeInput],
+    ];
   }
 }
