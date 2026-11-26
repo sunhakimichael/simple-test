@@ -40,6 +40,27 @@ export function buildUpdatedBooking(original: Booking): Booking {
   };
 }
 
+/** Filter yang didukung GET /booking dan diuji di suite ini. */
+export interface BookingSearch {
+  firstname?: string;
+  lastname?: string;
+}
+
+/** Satu kasus PATCH: hanya field nama yang dikirim, field lain harus tetap. */
+export interface NamePatchCase {
+  label: string;
+  build: (original: Booking) => Pick<Partial<Booking>, 'firstname' | 'lastname'>;
+}
+
+export const NAME_PATCH_CASES: readonly NamePatchCase[] = [
+  { label: 'firstname saja', build: (b) => ({ firstname: `${b.firstname}-patched` }) },
+  { label: 'lastname saja', build: (b) => ({ lastname: `${b.lastname}-patched` }) },
+  {
+    label: 'firstname dan lastname',
+    build: (b) => ({ firstname: `${b.firstname}-patched`, lastname: `${b.lastname}-patched` }),
+  },
+];
+
 /** Payload tidak lengkap (hanya firstname) untuk test negatif. */
 export const INCOMPLETE_BOOKING: Partial<Booking> = { firstname: 'OnlyFirstName' };
 
@@ -50,5 +71,6 @@ export const API_MESSAGES = {
   badCredentials: 'Bad credentials',
   forbidden: 'Forbidden',
   notFound: 'Not Found',
+  methodNotAllowed: 'Method Not Allowed',
   serverError: 'Internal Server Error',
 } as const;

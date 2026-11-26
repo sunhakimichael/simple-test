@@ -106,6 +106,31 @@ Ada juga test `DELETE /booking/{id}` (201, lalu `GET` berikutnya 404).
 - Kredensial salah dibalas **200** dengan `{"reason":"Bad credentials"}`, bukan 401.
 - Payload tidak lengkap dibalas **500**, bukan 400.
 - `DELETE` yang berhasil dibalas **201 Created**.
+- `PATCH` ke ID yang sudah dihapus dibalas **405 Method Not Allowed**, bukan 404.
+
+### PATCH, filter pencarian, dan contract
+
+| Skenario | Lokasi test |
+|----------|-------------|
+| `PATCH` firstname saja, lastname saja, dan keduanya. Nama berubah, **field lain terbukti tidak berubah** (di respons dan lewat GET lanjutan) | `tests/api/booking-patch.spec.ts` |
+| `PATCH` tanpa token: 403, data tidak berubah. `PATCH` ke booking yang sudah dihapus: 405 | `tests/api/booking-patch.spec.ts` |
+| `GET /booking?firstname=`, `?firstname=&lastname=`, lastname salah menghasilkan `[]` (filter digabung AND), nama tidak ada menghasilkan `[]` | `tests/api/booking-search.spec.ts` |
+| Filter setelah `PATCH` nama (nama baru ditemukan, nama lama tidak) dan setelah `DELETE` (tidak ditemukan) | `tests/api/booking-search.spec.ts` |
+| Contract respons `POST /auth`, `POST /booking`, `GET /booking/{id}`, `GET /booking`, `PUT`, `PATCH` | `tests/api/booking-contract.spec.ts` |
+
+**Cara membuktikan field lain tidak berubah:** ekspektasi dibangun dari payload asli, `{ ...sent, ...patch }`, lalu dibandingkan utuh dengan `toEqual`. Hanya key yang ada di `patch` yang boleh berbeda. Kalau `totalprice`, `depositpaid`, `bookingdates`, atau `additionalneeds` ikut berubah, test gagal. Kasusnya didefinisikan sekali di `NAME_PATCH_CASES` (`test-data/booking.ts`).
+
+**Cara kerja contract** (`api/contracts.ts`): contract ditulis dengan asymmetric matcher Playwright (`expect.any(String)`, `expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)`, dan seterusnya), lalu dipakai lewat `toEqual`. `toEqual` menolak key yang hilang maupun key tambahan, sedangkan matcher memeriksa tipe dan format. Jadi satu assertion mencakup nama key, tipe, dan format tanggal, tanpa dependency tambahan seperti ajv atau zod. Contract memeriksa *bentuk*, sedangkan test fungsional di atas memeriksa *nilai*.
+
+**Mengapa hasil filter bisa dibandingkan persis:** API ini publik dan dipakai banyak orang, tetapi setiap test membuat booking dengan firstname unik (`QA-<tag>`). Karena itu hasilnya bisa dicek dengan `toEqual([{ bookingid: id }])`, bukan sekadar "mengandung".
+
+**Yang sengaja tidak diuji:** filter `checkin`/`checkout`. Di Restful-Booker filter tanggal tidak konsisten (batasnya eksklusif), jadi test-nya akan menguji bug yang sudah diketahui, bukan perilaku yang diharapkan.
+
+**Bukti test bisa gagal:** sudah dicoba dengan mutasi sementara (tidak di-commit). Keempat mutasi gagal seperti seharusnya:
+- ekspektasi `totalprice` ikut berubah setelah PATCH nama
+- contract diberi key tambahan
+- contract diberi tipe yang salah
+- nama lama dianggap masih ditemukan setelah PATCH
 
 ## Struktur Proyek
 
@@ -113,7 +138,8 @@ Ada juga test `DELETE /booking/{id}` (201, lalu `GET` berikutnya 404).
 simple-test/
 ├── pages/                    # Page Object Model (Part A)
 ├── api/
-│   └── BookingClient.ts      # Pembungkus endpoint Restful-Booker (Part B)
+│   ├── BookingClient.ts      # Pembungkus endpoint Restful-Booker (Part B)
+│   └── contracts.ts          # Contract respons (key + tipe + format)
 ├── config/
 │   └── api.config.ts         # Base URL & kredensial API (bisa di-override env)
 ├── fixtures/
@@ -133,7 +159,10 @@ simple-test/
 │   │   └── checkout-form-validation.spec.ts
 │   └── api/                  # Project "api"
 │       ├── auth.spec.ts
-│       └── booking.spec.ts
+│       ├── booking.spec.ts
+│       ├── booking-patch.spec.ts
+│       ├── booking-search.spec.ts
+│       └── booking-contract.spec.ts
 ├── playwright.config.ts
 ├── tsconfig.json
 └── package.json
