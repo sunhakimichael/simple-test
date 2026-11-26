@@ -18,7 +18,7 @@ Memakai **Page Object Model**: locator dan assertion halaman ada di `pages/`, sp
 | 3. Sort "Price (low to high)": **seluruh** daftar berurutan | `tests/ui/product-sorting.spec.ts` (diperluas ke 4 opsi sort, lihat [Multi-sorting](#multi-sorting)) |
 | 4. Tambah 2 produk, cek badge & isi cart, checkout sampai konfirmasi | `tests/ui/e2e/checkout-journey.spec.ts` |
 
-Test tambahan: kredensial salah, username/password kosong, akses `/inventory.html` tanpa login, dan validasi form checkout (`tests/ui/checkout-form-validation.spec.ts`).
+Test tambahan: kredensial salah, username/password kosong, akses `/inventory.html` tanpa login, dan validasi form checkout (`tests/ui/checkout-form-validation.spec.ts`, lihat [Negative test form checkout](#negative-test-form-checkout)).
 
 **Cara memenuhi syarat teknis:**
 - **Locator user-facing:** `getByTestId` (dikonfigurasi ke atribut `data-test` milik Sauce Demo) dan `getByRole`. Tidak ada XPath atau rantai CSS.
@@ -28,6 +28,29 @@ Test tambahan: kredensial salah, username/password kosong, akses `/inventory.htm
 - **Total checkout dihitung**, bukan ditulis manual: `calculateOrderTotals()` menghitung subtotal + pajak 8% dalam satuan sen.
 
 > Sauce Demo tidak punya form kartu kredit. "Payment" diverifikasi lewat info pembayaran statis (`SauceCard #31337`), rincian harga, lalu tombol **Finish**.
+
+### Negative test form checkout
+
+`tests/ui/checkout-form-validation.spec.ts` menjalankan satu skenario reusable untuk setiap field wajib di `REQUIRED_FIELD_CASES` (`test-data/checkout.ts`): **First Name**, **Last Name**, dan **Postal Code**. Pada tiap kasus, field tersebut tidak diisi sama sekali, dan dua field lainnya diisi dengan data `CUSTOMER`.
+
+Setiap test memiliki 4 langkah (`test.step`):
+
+1. Isi form tanpa field tersebut, lalu klik **Continue**.
+2. **Checkout terblokir**, dicek dengan `checkoutInfoPage.expectCheckoutBlocked()`:
+   - pesan error yang tepat tampil (mis. `Error: Last Name is required`),
+   - user tetap di Checkout Step One (URL `checkout-step-one.html`, judul, tombol Continue masih ada),
+   - field yang kosong tetap kosong, dan isian lain tidak hilang,
+   - badge keranjang tidak berubah (pesanan belum dibuat).
+3. Klik **Continue** lagi tanpa perbaikan: tetap ditolak.
+4. **Kontrol:** setelah field diisi, checkout baru berlanjut ke Overview dengan item yang sama. Langkah ini membuktikan bahwa penyebab blokirnya memang field tersebut.
+
+Ada juga kasus **semua field kosong**: error First Name tampil lebih dulu, dan checkout tidak berlanjut.
+
+> Sauce Demo memberi tanda merah dan ikon ✕ di **ketiga** field setiap kali validasi gagal, tidak hanya di field yang kosong. Karena itu, field yang bermasalah dipastikan lewat teks error, bukan lewat tanda visual tersebut.
+
+**Bukti test bisa gagal:** spec ini pernah dijalankan sebagai user Sauce Demo yang memang punya bug di form checkout.
+- `problem_user`: ketikan di Last Name masuk ke field lain. Test menangkap pesan error yang salah, dan menangkap checkout yang tetap macet setelah field diperbaiki.
+- `error_user`: field Last Name tidak bisa diisi, dan checkout **lolos tanpa Last Name**. Test menangkap isian yang hilang dan error yang tidak muncul.
 
 ### Multi-sorting
 
