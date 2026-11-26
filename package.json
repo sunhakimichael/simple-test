@@ -22,6 +22,9 @@
     "test:dev": "node scripts/run-tests.js dev",
     "test:staging": "node scripts/run-tests.js staging",
     "test:prod": "node scripts/run-tests.js prod",
+    "demo:1": "playwright test --project=chromium --headed --workers=1 -g \"login berhasil|user yang terkunci|Price .low to high.|E2E: Login\"",
+    "demo:2": "playwright test tests/ui/login.spec.ts tests/ui/product-sorting.spec.ts tests/ui/e2e --headed --workers=1",
+    "demo:3": "playwright test tests/api/auth.spec.ts tests/api/booking.spec.ts",
     "test:list": "playwright test --list",
     "report": "playwright show-report",
     "typecheck": "tsc --noEmit"
